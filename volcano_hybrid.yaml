@@ -1,0 +1,116 @@
+esphome:
+  name: volcanohybrid
+  platform: ESP32
+  board: esp32dev
+
+wifi:
+  ssid: "WIFI_SSID"
+  password: "WIFI_PASSWORD"
+
+  ap:
+    ssid: "Fallback Hotspot"
+    password: "FALLBACK_PASSWORD"
+
+logger:
+
+api:
+
+ota:
+  platform: esphome
+
+esp32_ble_tracker:
+
+ble_client:
+  - mac_address: "VOLCANO_MAC_ADDRESS"  # Your actual device MAC address
+    id: volcano_ble_client
+
+# Fan control switch
+switch:
+  - platform: template
+    name: "Volcano Fan Control"
+    id: volcano_fan
+    turn_on_action:
+      - ble_client.ble_write:
+          id: volcano_ble_client
+          service_uuid: "10110000-5354-4F52-5A26-4249434B454C"
+          characteristic_uuid: "10110013-5354-4F52-5A26-4249434B454C"  # Fan ON
+          value: [0x01]
+    turn_off_action:
+      - ble_client.ble_write:
+          id: volcano_ble_client
+          service_uuid: "10110000-5354-4F52-5A26-4249434B454C"
+          characteristic_uuid: "10110014-5354-4F52-5A26-4249434B454C"  # Fan OFF
+          value: [0x01]
+
+# Heat control switch
+  - platform: template
+    name: "Volcano Heat Control"
+    id: volcano_heat
+    turn_on_action:
+      - ble_client.ble_write:
+          id: volcano_ble_client
+          service_uuid: "10110000-5354-4F52-5A26-4249434B454C"
+          characteristic_uuid: "1011000F-5354-4F52-5A26-4249434B454C"  # Heat ON
+          value: [0x01]
+    turn_off_action:
+      - ble_client.ble_write:
+          id: volcano_ble_client
+          service_uuid: "10110000-5354-4F52-5A26-4249434B454C"
+          characteristic_uuid: "10110010-5354-4F52-5A26-4249434B454C"  # Heat OFF
+          value: [0x01]
+
+# Current Temperature Sensor
+sensor:
+  - platform: ble_client
+    type: characteristic
+    ble_client_id: volcano_ble_client
+    name: "Volcano Current Temperature"
+    service_uuid: "10110000-5354-4F52-5A26-4249434B454C"
+    characteristic_uuid: "10110001-5354-4F52-5A26-4249434B454C"
+    unit_of_measurement: "°C"
+    lambda: |-
+      return (x[0] | (x[1] << 8)) / 10.0;
+
+# Selected Temperature Sensor
+  - platform: ble_client
+    type: characteristic
+    ble_client_id: volcano_ble_client
+    name: "Volcano Selected Temperature"
+    service_uuid: "10110000-5354-4F52-5A26-4249434B454C"
+    characteristic_uuid: "10110003-5354-4F52-5A26-4249434B454C"
+    unit_of_measurement: "°C"
+    lambda: |-
+      return (x[0] | (x[1] << 8)) / 10.0;
+
+# LED Brightness Control using template
+number:
+  - platform: template
+    name: "Volcano LED Brightness"
+    id: volcano_led_brightness
+    min_value: 0
+    max_value: 100
+    step: 1
+    unit_of_measurement: "%"
+    set_action:
+      - ble_client.ble_write:
+          id: volcano_ble_client
+          service_uuid: "10110000-5354-4F52-5A26-4249434B454C"
+          characteristic_uuid: "10110005-5354-4F52-5A26-4249434B454C"
+          value: !lambda |-
+            return {int(x)};
+
+# Target Temperature Control using template
+  - platform: template
+    name: "Volcano Target Temperature"
+    id: volcano_target_temp
+    min_value: 40
+    max_value: 230
+    step: 1
+    unit_of_measurement: "°C"
+    set_action:
+      - ble_client.ble_write:
+          id: volcano_ble_client
+          service_uuid: "10110000-5354-4F52-5A26-4249434B454C"
+          characteristic_uuid: "10110003-5354-4F52-5A26-4249434B454C"
+          value: !lambda |-
+            return {(int(x * 10)) & 0xFF, (int(x * 10)) >> 8};
